@@ -3,110 +3,44 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>🍺 Beer Counter</title>
-
-<meta name="theme-color" content="#ffb300">
-
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍺</text></svg>">
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <style>
-
-/* 🍺 SAFE BEER THEME (NO EXTERNAL IMAGES) */
 body {
   font-family: Arial;
   margin: 0;
   text-align: center;
+  background: #111;
   color: white;
-
-  background:
-    radial-gradient(circle at top, #ffcc66 0%, transparent 50%),
-    radial-gradient(circle at bottom, #3a2208 0%, #0d0a05 70%);
-}
-
-/* subtle beer foam effect (CSS only, no image) */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.05) 0%, transparent 40%),
-    radial-gradient(circle at 70% 60%, rgba(255,255,255,0.04) 0%, transparent 45%);
-  pointer-events: none;
 }
 
 .card {
-  background: rgba(40, 25, 10, 0.95);
-  padding: 20px;
-  border-radius: 25px;
-  width: 92%;
+  background: #222;
   max-width: 420px;
   margin: auto;
-  margin-top: 20px;
-  box-shadow: 0 0 50px rgba(255,180,0,0.3);
-  border: 1px solid rgba(255,180,0,0.2);
-}
-
-h1 {
-  font-size: 30px;
+  margin-top: 40px;
+  padding: 20px;
+  border-radius: 20px;
 }
 
 .count {
-  font-size: 110px;
-  color: #ffb300;
-  text-shadow: 0 0 20px rgba(255,180,0,0.3);
+  font-size: 90px;
+  color: orange;
 }
-
-#board div {
-  font-size: 18px;
-  padding: 10px;
-  display: flex;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-}
-
-button {
-  margin-top: 12px;
-  padding: 14px;
-  font-size: 16px;
-  border-radius: 12px;
-  border: none;
-  width: 100%;
-  background: #ff3b30;
-  color: white;
-}
-
-.flash {
-  transform: scale(1.02);
-  transition: 0.15s;
-}
-
-.session {
-  font-size: 12px;
-  opacity: 0.6;
-  margin-top: 6px;
-}
-
 </style>
 </head>
 
 <body>
 
 <div class="card">
-
   <h1 id="name">User</h1>
   <div class="count" id="count">0</div>
 
-  <div class="session" id="sessionInfo"></div>
-
   <h3>🏆 Ranking</h3>
   <div id="board"></div>
-
-  <button onclick="resetGame()">🔥 RESET ABEND</button>
-
 </div>
 
 <script>
@@ -124,125 +58,65 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// 👤 USER
+// 👤 USER FIX (ROBUST)
 const params = new URLSearchParams(window.location.search);
-const user = params.get("user") || "gast";
-document.getElementById("name").innerText = user;
+
+let user = params.get("user");
+
+// fallback sauber
+if (!user || user.trim() === "") {
+  user = "gast";
+}
+
+document.getElementById("name").innerText = "🍺 " + user;
 
 const ref = db.collection("beerCounter").doc(user);
 
-// 🍺 SESSION SAFE
-const sessionKey = "beer_session_v3";
-let session = localStorage.getItem(sessionKey);
-
-if (!session) {
-  session = Date.now().toString();
-  localStorage.setItem(sessionKey, session);
-}
-
-document.getElementById("sessionInfo").innerText = "Session: " + session;
-
-// 🧠 SCAN LOCK SAFE
-const scanKey = "scan_" + user;
-
-function canScan() {
-  const last = localStorage.getItem(scanKey);
-  const now = Date.now();
-
-  if (last && now - last < 4000) return false;
-
-  localStorage.setItem(scanKey, now);
-  return true;
-}
-
-// 🔊 SOUND SAFE
-const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_4f3c5a1b7d.mp3?filename=pop-94319.mp3");
-
-function playSound() {
-  audio.currentTime = 0;
-  audio.play().catch(()=>{});
-}
-
-// 🍺 MAIN SCAN
-function triggerBeer() {
-
-  if (!canScan()) return;
-
-  ref.set({
-    count: firebase.firestore.FieldValue.increment(1),
-    session: session
-  }, { merge: true }).catch(console.error);
-
-  playSound();
-
-  if (navigator.vibrate) navigator.vibrate([120,40,120]);
-
-  document.body.classList.add("flash");
-  setTimeout(()=>document.body.classList.remove("flash"),150);
-}
-
-// 📊 LIVE COUNTER (CRASH SAFE)
+// 🍺 COUNT UPDATE
 ref.onSnapshot(doc => {
-  try {
-    const data = doc.data();
-    document.getElementById("count").innerText = data?.count ?? 0;
-  } catch(e) {
-    document.getElementById("count").innerText = 0;
-  }
+  const data = doc.data();
+  document.getElementById("count").innerText = data?.count || 0;
 });
 
-// 🏆 LEADERBOARD (CRASH SAFE)
+// 🍺 AUTO INCREMENT (TEST / NFC SIMULATION)
+function addBeer() {
+  ref.set({
+    count: firebase.firestore.FieldValue.increment(1)
+  }, { merge: true });
+}
+
+// optional test tap
+document.body.addEventListener("click", addBeer);
+
+// 🏆 LEADERBOARD
 db.collection("beerCounter")
-  .orderBy("count","desc")
+  .orderBy("count", "desc")
   .onSnapshot(snapshot => {
 
     const board = document.getElementById("board");
     board.innerHTML = "";
 
-    if (!snapshot) return;
-
     let rank = 0;
 
     snapshot.forEach(doc => {
-      try {
-        rank++;
-        const d = doc.data() || {};
+      rank++;
 
-        let crown = "";
-        if(rank===1) crown="👑 ";
-        if(rank===2) crown="🥈 ";
-        if(rank===3) crown="🥉 ";
+      const d = doc.data();
 
-        board.innerHTML += `
-          <div>
-            <span>${crown}🍺 ${doc.id}</span>
-            <span>${d.count ?? 0}</span>
-          </div>
-        `;
-      } catch(e) {}
+      let medal = "";
+      if(rank===1) medal="👑 ";
+      if(rank===2) medal="🥈 ";
+      if(rank===3) medal="🥉 ";
+
+      board.innerHTML += `
+        <div style="display:flex;justify-content:space-between;padding:5px;">
+          <span>${medal}🍺 ${doc.id}</span>
+          <span>${d.count || 0}</span>
+        </div>
+      `;
     });
 
   });
-
-// 🔥 RESET SAFE
-async function resetGame() {
-
-  const pw = prompt("Admin Passwort:");
-  if(pw !== "beer2026") return alert("❌ falsch");
-
-  const all = await db.collection("beerCounter").get();
-
-  const batch = db.batch();
-  all.forEach(d => batch.delete(d.ref));
-
-  await batch.commit();
-
-  localStorage.removeItem(sessionKey);
-  localStorage.removeItem(scanKey);
-
-  alert("🍺 Reset erfolgreich!");
-  location.reload();
-}
 
 </script>
 
