@@ -12,9 +12,9 @@
 body {
   font-family: Arial;
   margin: 0;
-  text-align: center;
   background: #111;
   color: white;
+  text-align: center;
 }
 
 .card {
@@ -30,6 +30,20 @@ body {
   font-size: 90px;
   color: orange;
 }
+
+button {
+  margin-top: 10px;
+  padding: 12px;
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.reset {
+  background: red;
+  color: white;
+}
 </style>
 </head>
 
@@ -41,6 +55,9 @@ body {
 
   <h3>🏆 Ranking</h3>
   <div id="board"></div>
+
+  <!-- RESET BUTTON -->
+  <button class="reset" onclick="resetGame()">🔥 ADMIN RESET</button>
 </div>
 
 <script>
@@ -58,35 +75,40 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// 👤 USER FIX (ROBUST)
+// 👤 USER SAFE
 const params = new URLSearchParams(window.location.search);
-
 let user = params.get("user");
-
-// fallback sauber
-if (!user || user.trim() === "") {
-  user = "gast";
-}
+if (!user) user = "gast";
 
 document.getElementById("name").innerText = "🍺 " + user;
 
 const ref = db.collection("beerCounter").doc(user);
 
-// 🍺 COUNT UPDATE
-ref.onSnapshot(doc => {
-  const data = doc.data();
-  document.getElementById("count").innerText = data?.count || 0;
-});
+// 🧠 ANTI SPAM LOCK (IMPORTANT)
+let lastTap = 0;
+function canAdd() {
+  const now = Date.now();
+  if (now - lastTap < 3000) return false;
+  lastTap = now;
+  return true;
+}
 
-// 🍺 AUTO INCREMENT (TEST / NFC SIMULATION)
+// 🍺 ADD BEER (ONLY MANUAL SAFE CALL)
 function addBeer() {
+  if (!canAdd()) return;
+
   ref.set({
     count: firebase.firestore.FieldValue.increment(1)
   }, { merge: true });
 }
 
-// optional test tap
-document.body.addEventListener("click", addBeer);
+// ❌ WICHTIG: KEIN GLOBAL TOUCH EVENT MEHR
+// (removed document.body click listener)
+
+// 📊 LIVE COUNT
+ref.onSnapshot(doc => {
+  document.getElementById("count").innerText = doc.data()?.count || 0;
+});
 
 // 🏆 LEADERBOARD
 db.collection("beerCounter")
@@ -100,7 +122,6 @@ db.collection("beerCounter")
 
     snapshot.forEach(doc => {
       rank++;
-
       const d = doc.data();
 
       let medal = "";
@@ -117,6 +138,26 @@ db.collection("beerCounter")
     });
 
   });
+
+// 🔥 ADMIN RESET
+async function resetGame() {
+
+  const pw = prompt("Admin Passwort?");
+  if (pw !== "beer2026") {
+    alert("❌ falsch");
+    return;
+  }
+
+  const all = await db.collection("beerCounter").get();
+  const batch = db.batch();
+
+  all.forEach(doc => batch.delete(doc.ref));
+
+  await batch.commit();
+
+  alert("🍺 Reset erfolgreich!");
+  location.reload();
+}
 
 </script>
 
