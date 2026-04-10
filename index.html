@@ -40,10 +40,15 @@ body {
 
 button {
   margin-top: 10px;
-  padding: 10px;
+  padding: 12px;
   width: 100%;
   border: none;
   border-radius: 10px;
+}
+
+.reset {
+  background: red;
+  color: white;
 }
 </style>
 </head>
@@ -57,7 +62,7 @@ button {
   <h3>🏆 Ranking</h3>
   <div id="board"></div>
 
-  <button onclick="resetGame()">🔥 ADMIN RESET</button>
+  <button class="reset" onclick="resetGame()">🔥 ADMIN RESET</button>
 </div>
 
 <script>
@@ -82,7 +87,7 @@ document.getElementById("name").innerText = "🍺 " + user;
 
 const ref = db.collection("beerCounter").doc(user);
 
-// 🧠 ANTI-SPAM (pro Scan + Link open)
+// 🧠 ANTI SPAM LOCK
 const scanKey = "scan_" + user;
 function canScan() {
   const last = localStorage.getItem(scanKey);
@@ -94,8 +99,13 @@ function canScan() {
   return true;
 }
 
-// 🍺 AUTO INCREMENT BEI PAGE OPEN (WICHTIG)
-function triggerBeer() {
+// 🚨 WICHTIG: GLOBAL FLAG (RESET SAFE MODE)
+let resetMode = false;
+
+// 🍺 ONLY THIS FUNCTION TRIGGERS BEER
+function openLinkScan() {
+
+  if (resetMode) return;
   if (!canScan()) return;
 
   ref.set({
@@ -103,15 +113,15 @@ function triggerBeer() {
   }, { merge: true });
 }
 
-// 👉 DAS IST DER WICHTIGE FIX
-triggerBeer();
+// 👉 PAGE OPEN = SCAN (NFC LOGIC)
+openLinkScan();
 
 // 📊 LIVE COUNT
 ref.onSnapshot(doc => {
   document.getElementById("count").innerText = doc.data()?.count || 0;
 });
 
-// 🏆 LEADERBOARD (STABIL)
+// 🏆 LEADERBOARD SAFE
 db.collection("beerCounter")
   .orderBy("count", "desc")
   .onSnapshot(snapshot => {
@@ -123,6 +133,7 @@ db.collection("beerCounter")
 
     snapshot.forEach(doc => {
       rank++;
+
       const d = doc.data() || {};
 
       let medal = "";
@@ -140,11 +151,13 @@ db.collection("beerCounter")
 
   });
 
-// 🔥 RESET ADMIN
+// 🔥 ADMIN RESET (FIXED - NO AUTO SCAN BUG)
 async function resetGame() {
 
   const pw = prompt("Admin Passwort?");
   if (pw !== "beer2026") return alert("❌ falsch");
+
+  resetMode = true; // 🚨 BLOCK SCANS
 
   const all = await db.collection("beerCounter").get();
   const batch = db.batch();
@@ -153,8 +166,14 @@ async function resetGame() {
 
   await batch.commit();
 
-  alert("🍺 Reset fertig!");
-  location.reload();
+  // LOCAL CLEANUP
+  localStorage.clear();
+
+  alert("🍺 Reset erfolgreich!");
+
+  setTimeout(() => {
+    location.reload();
+  }, 300);
 }
 
 </script>
