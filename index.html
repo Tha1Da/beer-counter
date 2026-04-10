@@ -31,18 +31,19 @@ body {
   color: orange;
 }
 
+#board div {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px;
+  border-bottom: 1px solid #333;
+}
+
 button {
   margin-top: 10px;
-  padding: 12px;
+  padding: 10px;
   width: 100%;
   border: none;
   border-radius: 10px;
-  font-size: 16px;
-}
-
-.reset {
-  background: red;
-  color: white;
 }
 </style>
 </head>
@@ -56,8 +57,7 @@ button {
   <h3>🏆 Ranking</h3>
   <div id="board"></div>
 
-  <!-- RESET BUTTON -->
-  <button class="reset" onclick="resetGame()">🔥 ADMIN RESET</button>
+  <button onclick="resetGame()">🔥 ADMIN RESET</button>
 </div>
 
 <script>
@@ -75,42 +75,43 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// 👤 USER SAFE
+// 👤 USER
 const params = new URLSearchParams(window.location.search);
-let user = params.get("user");
-if (!user) user = "gast";
-
+const user = params.get("user") || "gast";
 document.getElementById("name").innerText = "🍺 " + user;
 
 const ref = db.collection("beerCounter").doc(user);
 
-// 🧠 ANTI SPAM LOCK (IMPORTANT)
-let lastTap = 0;
-function canAdd() {
+// 🧠 ANTI-SPAM (pro Scan + Link open)
+const scanKey = "scan_" + user;
+function canScan() {
+  const last = localStorage.getItem(scanKey);
   const now = Date.now();
-  if (now - lastTap < 3000) return false;
-  lastTap = now;
+
+  if (last && now - last < 4000) return false;
+
+  localStorage.setItem(scanKey, now);
   return true;
 }
 
-// 🍺 ADD BEER (ONLY MANUAL SAFE CALL)
-function addBeer() {
-  if (!canAdd()) return;
+// 🍺 AUTO INCREMENT BEI PAGE OPEN (WICHTIG)
+function triggerBeer() {
+  if (!canScan()) return;
 
   ref.set({
     count: firebase.firestore.FieldValue.increment(1)
   }, { merge: true });
 }
 
-// ❌ WICHTIG: KEIN GLOBAL TOUCH EVENT MEHR
-// (removed document.body click listener)
+// 👉 DAS IST DER WICHTIGE FIX
+triggerBeer();
 
 // 📊 LIVE COUNT
 ref.onSnapshot(doc => {
   document.getElementById("count").innerText = doc.data()?.count || 0;
 });
 
-// 🏆 LEADERBOARD
+// 🏆 LEADERBOARD (STABIL)
 db.collection("beerCounter")
   .orderBy("count", "desc")
   .onSnapshot(snapshot => {
@@ -122,7 +123,7 @@ db.collection("beerCounter")
 
     snapshot.forEach(doc => {
       rank++;
-      const d = doc.data();
+      const d = doc.data() || {};
 
       let medal = "";
       if(rank===1) medal="👑 ";
@@ -130,7 +131,7 @@ db.collection("beerCounter")
       if(rank===3) medal="🥉 ";
 
       board.innerHTML += `
-        <div style="display:flex;justify-content:space-between;padding:5px;">
+        <div>
           <span>${medal}🍺 ${doc.id}</span>
           <span>${d.count || 0}</span>
         </div>
@@ -139,14 +140,11 @@ db.collection("beerCounter")
 
   });
 
-// 🔥 ADMIN RESET
+// 🔥 RESET ADMIN
 async function resetGame() {
 
   const pw = prompt("Admin Passwort?");
-  if (pw !== "beer2026") {
-    alert("❌ falsch");
-    return;
-  }
+  if (pw !== "beer2026") return alert("❌ falsch");
 
   const all = await db.collection("beerCounter").get();
   const batch = db.batch();
@@ -155,7 +153,7 @@ async function resetGame() {
 
   await batch.commit();
 
-  alert("🍺 Reset erfolgreich!");
+  alert("🍺 Reset fertig!");
   location.reload();
 }
 
